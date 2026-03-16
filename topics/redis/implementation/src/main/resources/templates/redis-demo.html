@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redis Lab Demo</title>
+    <link rel="stylesheet" th:href="@{/css/redis-demo.css}">
+</head>
+<body>
+<div class="page">
+    <header class="hero">
+        <div>
+            <p class="eyebrow">Backend Lab</p>
+            <h1>Redis 종합편 v1 데모</h1>
+            <p class="hero-copy">
+                Redis가 왜 빠른지, 어디에 쓰는지, 캐시부터 Pub/Sub, 락, 리더보드, Rate Limit까지 한 화면에서 시연할 수 있도록 구성했습니다.
+            </p>
+        </div>
+        <form method="post" th:action="@{/demo/redis/reset}">
+            <button class="secondary">상태 초기화</button>
+        </form>
+    </header>
+
+    <section class="message" th:if="${message != null}">
+        <strong>실행 결과</strong>
+        <p th:text="${message}"></p>
+    </section>
+
+    <section class="explain">
+        <div class="point">
+            <h2>발표 핵심 메시지</h2>
+            <ul>
+                <li>Redis는 인메모리 기반이라 디스크 I/O보다 훨씬 빠릅니다.</li>
+                <li>싱글 스레드여도 짧은 명령과 자료구조 최적화 덕분에 고성능입니다.</li>
+                <li>캐시, 이벤트 전달, 분산 락, 카운터, 랭킹 시스템에 특히 강합니다.</li>
+            </ul>
+        </div>
+        <div class="point dark">
+            <h2>데모 순서 추천</h2>
+            <ol>
+                <li>Basics</li>
+                <li>Cache</li>
+                <li>Pub/Sub</li>
+                <li>Lock</li>
+                <li>Leaderboard</li>
+                <li>Rate Limit</li>
+            </ol>
+        </div>
+    </section>
+
+    <main class="grid">
+        <section class="card">
+            <div class="card-head">
+                <h3>1. Basics</h3>
+                <span>자료구조 + TTL</span>
+            </div>
+            <p>String, Hash, Set, List, Sorted Set, TTL을 채우고 현재 상태를 확인합니다.</p>
+            <form method="post" th:action="@{/demo/redis/basics/populate}">
+                <button>기본 데이터 채우기</button>
+            </form>
+            <div class="result" th:if="${snapshot.basicsSnapshot != null}">
+                <p><strong>String:</strong> <span th:text="${snapshot.basicsSnapshot.stringValue}"></span></p>
+                <p><strong>Hash:</strong> <span th:text="${snapshot.basicsSnapshot.hashValue}"></span></p>
+                <p><strong>Set:</strong> <span th:text="${snapshot.basicsSnapshot.setMembers}"></span></p>
+                <p><strong>List:</strong> <span th:text="${snapshot.basicsSnapshot.listValues}"></span></p>
+                <p><strong>ZSet Top:</strong> <span th:text="${snapshot.basicsSnapshot.sortedTop}"></span></p>
+                <p><strong>TTL:</strong> <span th:text="${snapshot.basicsSnapshot.ttlSeconds}"></span>s</p>
+            </div>
+        </section>
+
+        <section class="card">
+            <div class="card-head">
+                <h3>2. Cache</h3>
+                <span>Cache Aside</span>
+            </div>
+            <p>같은 상품을 두 번 조회해 queryCount가 1로 유지되는지 확인합니다.</p>
+            <div class="actions">
+                <form method="post" th:action="@{/demo/redis/cache/run}">
+                    <button>캐시 데모 실행</button>
+                </form>
+                <form method="post" th:action="@{/demo/redis/cache/evict}">
+                    <button class="secondary">캐시 비우기</button>
+                </form>
+            </div>
+            <div class="result">
+                <p><strong>원본 조회 횟수:</strong> <span th:text="${snapshot.cacheQueryCount}"></span></p>
+                <p><strong>캐시된 상품:</strong> <span th:text="${snapshot.cachedProduct != null ? snapshot.cachedProduct : '없음'}"></span></p>
+            </div>
+        </section>
+
+        <section class="card">
+            <div class="card-head">
+                <h3>3. Pub/Sub</h3>
+                <span>실시간 이벤트</span>
+            </div>
+            <p>이벤트를 발행하고, 페이지에서 최근 수신 이벤트 목록을 확인합니다.</p>
+            <form method="post" th:action="@{/demo/redis/pubsub/publish}">
+                <button>이벤트 발행</button>
+            </form>
+            <div class="result">
+                <p><strong>수신 이벤트:</strong></p>
+                <ul>
+                    <li th:each="event : ${snapshot.pubSubEvents}" th:text="${event.type + ' / ' + event.payload}"></li>
+                    <li th:if="${#lists.isEmpty(snapshot.pubSubEvents)}">아직 수신된 이벤트가 없습니다.</li>
+                </ul>
+            </div>
+        </section>
+
+        <section class="card">
+            <div class="card-head">
+                <h3>4. Lock</h3>
+                <span>동시성 제어</span>
+            </div>
+            <p>단순 락과 Redisson 락을 각각 시연합니다. Redisson 락은 동시 요청 후 재고가 0 아래로 내려가지 않는지 봅니다.</p>
+            <div class="actions">
+                <form method="post" th:action="@{/demo/redis/lock/simple}">
+                    <button>단순 락 실행</button>
+                </form>
+                <form method="post" th:action="@{/demo/redis/lock/redisson}">
+                    <button>Redisson 락 실행</button>
+                </form>
+            </div>
+            <div class="result">
+                <p><strong>현재 락 값:</strong> <span th:text="${snapshot.lockValue != null ? snapshot.lockValue : '없음'}"></span></p>
+                <p><strong>현재 재고:</strong> <span th:text="${snapshot.inventoryStock}"></span></p>
+            </div>
+        </section>
+
+        <section class="card">
+            <div class="card-head">
+                <h3>5. Leaderboard</h3>
+                <span>Sorted Set</span>
+            </div>
+            <p>점수를 적재하고 상위 순위가 자동 정렬되는 모습을 보여줍니다.</p>
+            <form method="post" th:action="@{/demo/redis/leaderboard/seed}">
+                <button>리더보드 적재</button>
+            </form>
+            <div class="result">
+                <ol>
+                    <li th:each="entry : ${snapshot.leaderboard}" th:text="${entry.member + ' - ' + entry.score}"></li>
+                    <li th:if="${#lists.isEmpty(snapshot.leaderboard)}">아직 점수가 없습니다.</li>
+                </ol>
+            </div>
+        </section>
+
+        <section class="card">
+            <div class="card-head">
+                <h3>6. Rate Limit</h3>
+                <span>INCR + TTL</span>
+            </div>
+            <p>같은 사용자 요청을 누를 때마다 카운터가 올라갑니다. 일정 횟수를 넘기면 차단됩니다.</p>
+            <form method="post" th:action="@{/demo/redis/ratelimit/hit}">
+                <button>요청 1회 보내기</button>
+            </form>
+            <div class="result">
+                <p><strong>현재 카운터:</strong> <span th:text="${snapshot.rateLimitCounter != null ? snapshot.rateLimitCounter : '0'}"></span></p>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>
