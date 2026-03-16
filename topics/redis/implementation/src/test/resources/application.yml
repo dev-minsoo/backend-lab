@@ -1,0 +1,19 @@
+spring:
+  cache:
+    type: redis
+    redis:
+      time-to-live: 3s
+      cache-null-values: false
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: none
+
+app:
+  rate-limit:
+    fixed-window-seconds: 2
+    max-requests: 3
