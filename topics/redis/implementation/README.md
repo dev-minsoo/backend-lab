@@ -51,14 +51,6 @@ http://localhost:8080/demo/redis
 - `leaderboard`: Sorted Set 기반 랭킹
 - `ratelimit`: 고정 윈도우 카운터
 
-## 🐘 선택 사항
-
-PostgreSQL이 필요하면 다음 명령으로 같이 띄울 수 있습니다.
-
-```bash
-docker-compose up -d
-```
-
 ## 🔧 주의사항
 
 - 애플리케이션 데모는 로컬 Redis가 필요합니다.

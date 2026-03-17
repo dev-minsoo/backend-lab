@@ -6,12 +6,3 @@ services:
     command: ["redis-server", "--appendonly", "yes", "--notify-keyspace-events", "Ex"]
     ports:
       - "6379:6379"
-
-  postgres:
-    image: postgres:15
-    environment:
-      POSTGRES_DB: redis
-      POSTGRES_USER: redis
-      POSTGRES_PASSWORD: redis
-    ports:
-      - "5432:5432"
