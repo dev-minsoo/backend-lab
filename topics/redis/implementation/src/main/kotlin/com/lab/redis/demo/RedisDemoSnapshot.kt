@@ -14,4 +14,5 @@ data class RedisDemoSnapshot(
     val inventoryStock: Int,
     val leaderboard: List<LeaderboardEntry>,
     val rateLimitCounter: String?,
+    val recentActivities: List<RedisDemoActivity>,
 )

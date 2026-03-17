@@ -27,6 +27,7 @@ app:
 
 logging:
   level:
+    com.lab.redis: INFO
     org.springframework.data.redis: INFO
 
 ---

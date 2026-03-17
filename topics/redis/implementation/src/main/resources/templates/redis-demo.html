@@ -16,14 +16,32 @@
                 Redis가 왜 빠른지, 어디에 쓰는지, 캐시부터 Pub/Sub, 락, 리더보드, Rate Limit까지 한 화면에서 시연할 수 있도록 구성했습니다.
             </p>
         </div>
-        <form method="post" th:action="@{/demo/redis/reset}">
-            <button class="secondary">상태 초기화</button>
-        </form>
+        <button class="secondary" data-action="/api/demo/redis/reset">상태 초기화</button>
     </header>
 
-    <section class="message" th:if="${message != null}">
+    <section class="message hidden" id="message-box">
         <strong>실행 결과</strong>
-        <p th:text="${message}"></p>
+        <p id="message-text"></p>
+    </section>
+
+    <section class="insights">
+        <div class="insight-card">
+            <p class="eyebrow">최근 액션</p>
+            <h2 id="detail-title">버튼을 눌러 데모를 실행해보세요.</h2>
+            <p id="detail-summary">각 동작의 기대 결과와 실제 결과를 여기서 바로 확인할 수 있습니다.</p>
+        </div>
+        <div class="insight-card">
+            <p><strong>기대 결과</strong></p>
+            <p id="detail-expected">아직 실행 전입니다.</p>
+            <p><strong>실제 결과</strong></p>
+            <p id="detail-actual">아직 실행 전입니다.</p>
+        </div>
+        <div class="insight-card dark">
+            <p><strong>Redis Key</strong></p>
+            <p id="detail-key">-</p>
+            <p><strong>주요 명령어</strong></p>
+            <p id="detail-command">-</p>
+        </div>
     </section>
 
     <section class="explain">
@@ -55,16 +73,14 @@
                 <span>자료구조 + TTL</span>
             </div>
             <p>String, Hash, Set, List, Sorted Set, TTL을 채우고 현재 상태를 확인합니다.</p>
-            <form method="post" th:action="@{/demo/redis/basics/populate}">
-                <button>기본 데이터 채우기</button>
-            </form>
-            <div class="result" th:if="${snapshot.basicsSnapshot != null}">
-                <p><strong>String:</strong> <span th:text="${snapshot.basicsSnapshot.stringValue}"></span></p>
-                <p><strong>Hash:</strong> <span th:text="${snapshot.basicsSnapshot.hashValue}"></span></p>
-                <p><strong>Set:</strong> <span th:text="${snapshot.basicsSnapshot.setMembers}"></span></p>
-                <p><strong>List:</strong> <span th:text="${snapshot.basicsSnapshot.listValues}"></span></p>
-                <p><strong>ZSet Top:</strong> <span th:text="${snapshot.basicsSnapshot.sortedTop}"></span></p>
-                <p><strong>TTL:</strong> <span th:text="${snapshot.basicsSnapshot.ttlSeconds}"></span>s</p>
+            <button data-action="/api/demo/redis/basics/populate">기본 데이터 채우기</button>
+            <div class="result">
+                <p><strong>String:</strong> <span id="basics-string">없음</span></p>
+                <p><strong>Hash:</strong> <span id="basics-hash">없음</span></p>
+                <p><strong>Set:</strong> <span id="basics-set">[]</span></p>
+                <p><strong>List:</strong> <span id="basics-list">[]</span></p>
+                <p><strong>ZSet Top:</strong> <span id="basics-zset">[]</span></p>
+                <p><strong>TTL:</strong> <span id="basics-ttl">0</span>s</p>
             </div>
         </section>
 
@@ -75,16 +91,12 @@
             </div>
             <p>같은 상품을 두 번 조회해 queryCount가 1로 유지되는지 확인합니다.</p>
             <div class="actions">
-                <form method="post" th:action="@{/demo/redis/cache/run}">
-                    <button>캐시 데모 실행</button>
-                </form>
-                <form method="post" th:action="@{/demo/redis/cache/evict}">
-                    <button class="secondary">캐시 비우기</button>
-                </form>
+                <button data-action="/api/demo/redis/cache/run">캐시 데모 실행</button>
+                <button class="secondary" data-action="/api/demo/redis/cache/evict">캐시 비우기</button>
             </div>
             <div class="result">
-                <p><strong>원본 조회 횟수:</strong> <span th:text="${snapshot.cacheQueryCount}"></span></p>
-                <p><strong>캐시된 상품:</strong> <span th:text="${snapshot.cachedProduct != null ? snapshot.cachedProduct : '없음'}"></span></p>
+                <p><strong>원본 조회 횟수:</strong> <span id="cache-count">0</span></p>
+                <p><strong>캐시된 상품:</strong> <span id="cache-product">없음</span></p>
             </div>
         </section>
 
@@ -94,14 +106,11 @@
                 <span>실시간 이벤트</span>
             </div>
             <p>이벤트를 발행하고, 페이지에서 최근 수신 이벤트 목록을 확인합니다.</p>
-            <form method="post" th:action="@{/demo/redis/pubsub/publish}">
-                <button>이벤트 발행</button>
-            </form>
+            <button data-action="/api/demo/redis/pubsub/publish">이벤트 발행</button>
             <div class="result">
                 <p><strong>수신 이벤트:</strong></p>
-                <ul>
-                    <li th:each="event : ${snapshot.pubSubEvents}" th:text="${event.type + ' / ' + event.payload}"></li>
-                    <li th:if="${#lists.isEmpty(snapshot.pubSubEvents)}">아직 수신된 이벤트가 없습니다.</li>
+                <ul id="pubsub-events">
+                    <li>아직 수신된 이벤트가 없습니다.</li>
                 </ul>
             </div>
         </section>
@@ -113,16 +122,12 @@
             </div>
             <p>단순 락과 Redisson 락을 각각 시연합니다. Redisson 락은 동시 요청 후 재고가 0 아래로 내려가지 않는지 봅니다.</p>
             <div class="actions">
-                <form method="post" th:action="@{/demo/redis/lock/simple}">
-                    <button>단순 락 실행</button>
-                </form>
-                <form method="post" th:action="@{/demo/redis/lock/redisson}">
-                    <button>Redisson 락 실행</button>
-                </form>
+                <button data-action="/api/demo/redis/lock/simple">단순 락 실행</button>
+                <button data-action="/api/demo/redis/lock/redisson">Redisson 락 실행</button>
             </div>
             <div class="result">
-                <p><strong>현재 락 값:</strong> <span th:text="${snapshot.lockValue != null ? snapshot.lockValue : '없음'}"></span></p>
-                <p><strong>현재 재고:</strong> <span th:text="${snapshot.inventoryStock}"></span></p>
+                <p><strong>현재 락 값:</strong> <span id="lock-value">없음</span></p>
+                <p><strong>현재 재고:</strong> <span id="inventory-stock">0</span></p>
             </div>
         </section>
 
@@ -132,13 +137,10 @@
                 <span>Sorted Set</span>
             </div>
             <p>점수를 적재하고 상위 순위가 자동 정렬되는 모습을 보여줍니다.</p>
-            <form method="post" th:action="@{/demo/redis/leaderboard/seed}">
-                <button>리더보드 적재</button>
-            </form>
+            <button data-action="/api/demo/redis/leaderboard/seed">리더보드 적재</button>
             <div class="result">
-                <ol>
-                    <li th:each="entry : ${snapshot.leaderboard}" th:text="${entry.member + ' - ' + entry.score}"></li>
-                    <li th:if="${#lists.isEmpty(snapshot.leaderboard)}">아직 점수가 없습니다.</li>
+                <ol id="leaderboard-list">
+                    <li>아직 점수가 없습니다.</li>
                 </ol>
             </div>
         </section>
@@ -149,14 +151,122 @@
                 <span>INCR + TTL</span>
             </div>
             <p>같은 사용자 요청을 누를 때마다 카운터가 올라갑니다. 일정 횟수를 넘기면 차단됩니다.</p>
-            <form method="post" th:action="@{/demo/redis/ratelimit/hit}">
-                <button>요청 1회 보내기</button>
-            </form>
+            <button data-action="/api/demo/redis/ratelimit/hit">요청 1회 보내기</button>
             <div class="result">
-                <p><strong>현재 카운터:</strong> <span th:text="${snapshot.rateLimitCounter != null ? snapshot.rateLimitCounter : '0'}"></span></p>
+                <p><strong>현재 카운터:</strong> <span id="ratelimit-counter">0</span></p>
             </div>
         </section>
     </main>
+
+    <section class="activity">
+        <div class="card wide">
+            <div class="card-head">
+                <h3>최근 실행 로그</h3>
+                <span>버튼 클릭 후 기대 결과와 실제 결과를 한눈에 비교</span>
+            </div>
+            <div class="result">
+                <ul id="activity-list">
+                    <li>아직 실행 로그가 없습니다.</li>
+                </ul>
+            </div>
+        </div>
+    </section>
 </div>
+<script>
+    const messageBox = document.getElementById("message-box");
+    const messageText = document.getElementById("message-text");
+
+    async function refreshSnapshot() {
+        const response = await fetch("/api/demo/redis/snapshot");
+        const snapshot = await response.json();
+        renderSnapshot(snapshot);
+    }
+
+    function renderSnapshot(snapshot) {
+        const basics = snapshot.basicsSnapshot;
+        document.getElementById("basics-string").textContent = basics?.stringValue ?? "없음";
+        document.getElementById("basics-hash").textContent = basics?.hashValue ?? "없음";
+        document.getElementById("basics-set").textContent = JSON.stringify(basics?.setMembers ?? []);
+        document.getElementById("basics-list").textContent = JSON.stringify(basics?.listValues ?? []);
+        document.getElementById("basics-zset").textContent = JSON.stringify(basics?.sortedTop ?? []);
+        document.getElementById("basics-ttl").textContent = basics?.ttlSeconds ?? 0;
+
+        document.getElementById("cache-count").textContent = String(snapshot.cacheQueryCount);
+        document.getElementById("cache-product").textContent = snapshot.cachedProduct
+            ? JSON.stringify(snapshot.cachedProduct)
+            : "없음";
+
+        const events = document.getElementById("pubsub-events");
+        events.innerHTML = "";
+        if (snapshot.pubSubEvents.length === 0) {
+            const li = document.createElement("li");
+            li.textContent = "아직 수신된 이벤트가 없습니다.";
+            events.appendChild(li);
+        } else {
+            snapshot.pubSubEvents.forEach((event) => {
+                const li = document.createElement("li");
+                li.textContent = `${event.type} / ${event.payload}`;
+                events.appendChild(li);
+            });
+        }
+
+        document.getElementById("lock-value").textContent = snapshot.lockValue ?? "없음";
+        document.getElementById("inventory-stock").textContent = String(snapshot.inventoryStock);
+
+        const leaderboard = document.getElementById("leaderboard-list");
+        leaderboard.innerHTML = "";
+        if (snapshot.leaderboard.length === 0) {
+            const li = document.createElement("li");
+            li.textContent = "아직 점수가 없습니다.";
+            leaderboard.appendChild(li);
+        } else {
+            snapshot.leaderboard.forEach((entry) => {
+                const li = document.createElement("li");
+                li.textContent = `${entry.member} - ${entry.score}`;
+                leaderboard.appendChild(li);
+            });
+        }
+
+        document.getElementById("ratelimit-counter").textContent = snapshot.rateLimitCounter ?? "0";
+
+        const activityList = document.getElementById("activity-list");
+        activityList.innerHTML = "";
+        if (snapshot.recentActivities.length === 0) {
+            const li = document.createElement("li");
+            li.textContent = "아직 실행 로그가 없습니다.";
+            activityList.appendChild(li);
+        } else {
+            snapshot.recentActivities.forEach((activity) => {
+                const li = document.createElement("li");
+                li.textContent = `[${activity.at}] ${activity.title} | ${activity.summary} | key=${activity.redisKey} | cmd=${activity.redisCommand}`;
+                activityList.appendChild(li);
+            });
+        }
+    }
+
+    function renderDetails(details) {
+        document.getElementById("detail-title").textContent = details.title;
+        document.getElementById("detail-summary").textContent = details.summary;
+        document.getElementById("detail-expected").textContent = details.expected;
+        document.getElementById("detail-actual").textContent = details.actual;
+        document.getElementById("detail-key").textContent = details.redisKey;
+        document.getElementById("detail-command").textContent = details.redisCommand;
+    }
+
+    async function runAction(path) {
+        const response = await fetch(path, { method: "POST" });
+        const data = await response.json();
+        messageText.textContent = data.message;
+        messageBox.classList.remove("hidden");
+        renderDetails(data.details);
+        renderSnapshot(data.snapshot);
+    }
+
+    document.querySelectorAll("[data-action]").forEach((button) => {
+        button.addEventListener("click", () => runAction(button.dataset.action));
+    });
+
+    refreshSnapshot();
+</script>
 </body>
 </html>

@@ -6,7 +6,6 @@ import com.lab.redis.cache.ProductView
 import com.lab.redis.leaderboard.LeaderboardService
 import com.lab.redis.lock.RedissonInventoryLockService
 import com.lab.redis.pubsub.LabEventSubscriber
-import org.springframework.cache.CacheManager
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.stereotype.Service
 
@@ -14,10 +13,10 @@ import org.springframework.stereotype.Service
 class RedisDemoSnapshotService(
     private val stringRedisTemplate: StringRedisTemplate,
     private val productCatalogService: ProductCatalogService,
-    private val cacheManager: CacheManager,
     private val subscriber: LabEventSubscriber,
     private val redissonInventoryLockService: RedissonInventoryLockService,
     private val leaderboardService: LeaderboardService,
+    private val activityLogService: RedisDemoActivityLogService,
 ) {
     fun snapshot(): RedisDemoSnapshot {
         return RedisDemoSnapshot(
@@ -29,6 +28,7 @@ class RedisDemoSnapshotService(
             inventoryStock = redissonInventoryLockService.currentStock(),
             leaderboard = leaderboardService.top(5),
             rateLimitCounter = stringRedisTemplate.opsForValue().get("rate-limit:demo-user"),
+            recentActivities = activityLogService.recent(),
         )
     }
 
@@ -50,8 +50,5 @@ class RedisDemoSnapshotService(
         )
     }
 
-    private fun readCachedProduct(): ProductView? {
-        val cache = cacheManager.getCache("products") ?: return null
-        return cache.get(1L, ProductView::class.java)
-    }
+    private fun readCachedProduct(): ProductView? = productCatalogService.cachedProduct(1L)
 }

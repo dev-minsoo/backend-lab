@@ -80,11 +80,35 @@ h1 {
     border-left: 5px solid var(--accent);
 }
 
+.hidden {
+    display: none;
+}
+
 .explain {
     display: grid;
     grid-template-columns: 1.2fr 0.8fr;
     gap: 18px;
     margin-bottom: 18px;
+}
+
+.insights {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+    margin-bottom: 18px;
+}
+
+.insight-card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 24px;
+    padding: 22px;
+    box-shadow: var(--shadow);
+}
+
+.insight-card.dark {
+    background: linear-gradient(135deg, #163328, #204b3c);
+    color: #eef7f1;
 }
 
 .point {
@@ -110,6 +134,14 @@ h1 {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 18px;
+}
+
+.activity {
+    margin-top: 18px;
+}
+
+.wide {
+    grid-column: 1 / -1;
 }
 
 .card {
@@ -175,6 +207,7 @@ button.secondary {
 
 @media (max-width: 900px) {
     .hero,
+    .insights,
     .explain,
     .grid {
         grid-template-columns: 1fr;

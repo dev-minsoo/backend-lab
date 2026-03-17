@@ -22,4 +22,12 @@ class RedisDemoPageTest : RedisIntegrationTestSupport() {
             .andExpect(status().isOk)
             .andExpect(content().string(containsString("Redis 종합편 v1 데모")))
     }
+
+    @Test
+    @DisplayName("Redis 데모 API는 JSON 스냅샷을 반환한다")
+    fun `should return demo snapshot as json`() {
+        mockMvc.perform(get("/api/demo/redis/snapshot"))
+            .andExpect(status().isOk)
+            .andExpect(content().string(containsString("cacheQueryCount")))
+    }
 }

@@ -1,10 +1,11 @@
 package com.lab.redis.cache
 
-import org.springframework.cache.annotation.CacheEvict
-import org.springframework.cache.annotation.CachePut
-import org.springframework.cache.annotation.Cacheable
+import com.fasterxml.jackson.databind.ObjectMapper
+import org.slf4j.LoggerFactory
+import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.stereotype.Service
 import java.io.Serializable
+import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -16,7 +17,11 @@ data class ProductView(
 ) : Serializable
 
 @Service
-class ProductCatalogService {
+class ProductCatalogService(
+    private val stringRedisTemplate: StringRedisTemplate,
+    private val objectMapper: ObjectMapper,
+) {
+    private val logger = LoggerFactory.getLogger(javaClass)
     private val queryCounter = AtomicInteger(0)
     private val storage = ConcurrentHashMap<Long, Pair<String, Int>>(
         mapOf(
@@ -25,28 +30,39 @@ class ProductCatalogService {
         ),
     )
 
-    @Cacheable(cacheNames = ["products"], key = "#productId")
     fun getProduct(productId: Long): ProductView {
+        val cacheKey = cacheKey(productId)
+        val cached = stringRedisTemplate.opsForValue().get(cacheKey)?.let {
+            objectMapper.readValue(it, ProductView::class.java)
+        }
+        if (cached != null) {
+            logger.info("demo=cache source=redis key={}", cacheKey)
+            return cached
+        }
+
         queryCounter.incrementAndGet()
         val product = storage[productId] ?: error("product not found: $productId")
-        return ProductView(
+        val productView = ProductView(
             id = productId,
             name = product.first,
             price = product.second,
             loadedAtEpochMillis = System.currentTimeMillis(),
         )
+        stringRedisTemplate.opsForValue().set(cacheKey, objectMapper.writeValueAsString(productView), Duration.ofMinutes(10))
+        logger.info("demo=cache source=origin key={} queryCount={}", cacheKey, queryCounter.get())
+        return productView
     }
 
-    @CachePut(cacheNames = ["products"], key = "#productId")
     fun updatePrice(productId: Long, newPrice: Int): ProductView {
         val current = storage[productId] ?: error("product not found: $productId")
         storage[productId] = current.first to newPrice
-        return getProductWithoutCache(productId)
+        val updated = getProductWithoutCache(productId)
+        stringRedisTemplate.opsForValue().set(cacheKey(productId), objectMapper.writeValueAsString(updated), Duration.ofMinutes(10))
+        return updated
     }
 
-    @CacheEvict(cacheNames = ["products"], key = "#productId")
     fun evictProduct(productId: Long) {
-        // Intentionally empty. Annotation performs the eviction.
+        stringRedisTemplate.delete(cacheKey(productId))
     }
 
     fun resetCounter() {
@@ -54,6 +70,11 @@ class ProductCatalogService {
     }
 
     fun queryCount(): Int = queryCounter.get()
+
+    fun cachedProduct(productId: Long): ProductView? =
+        stringRedisTemplate.opsForValue().get(cacheKey(productId))?.let {
+            objectMapper.readValue(it, ProductView::class.java)
+        }
 
     private fun getProductWithoutCache(productId: Long): ProductView {
         queryCounter.incrementAndGet()
@@ -65,4 +86,6 @@ class ProductCatalogService {
             loadedAtEpochMillis = System.currentTimeMillis(),
         )
     }
+
+    private fun cacheKey(productId: Long): String = "products::$productId"
 }

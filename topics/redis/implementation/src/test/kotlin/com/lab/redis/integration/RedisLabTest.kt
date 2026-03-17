@@ -18,7 +18,6 @@ import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.cache.CacheManager
 import org.springframework.data.redis.core.StringRedisTemplate
 import java.time.Duration
 import java.util.concurrent.CountDownLatch
@@ -53,9 +52,6 @@ class RedisLabTest : RedisIntegrationTestSupport() {
     @Autowired
     private lateinit var stringRedisTemplate: StringRedisTemplate
 
-    @Autowired
-    private lateinit var cacheManager: CacheManager
-
     @Test
     @DisplayName("Redis 기본 자료구조를 사용해 값을 저장하고 읽는다")
     fun `should demonstrate redis data structures`() {
@@ -79,7 +75,7 @@ class RedisLabTest : RedisIntegrationTestSupport() {
 
         first.id shouldBe second.id
         productCatalogService.queryCount() shouldBe 1
-        cacheManager.getCache("products")!!.get(1L).shouldNotBeNull()
+        productCatalogService.cachedProduct(1L).shouldNotBeNull()
     }
 
     @Test
