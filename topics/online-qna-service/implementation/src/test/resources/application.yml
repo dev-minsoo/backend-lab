@@ -1,0 +1,48 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:qna;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  data:
+    elasticsearch:
+      repositories:
+        enabled: false
+  kafka:
+    bootstrap-servers: localhost:9092
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+        default_batch_fetch_size: 100
+  flyway:
+    enabled: false
+
+app:
+  cache:
+    type: local
+  messaging:
+    enabled: false
+  search:
+    enabled: false
+  datasource:
+    write:
+      url: jdbc:h2:mem:qna;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE
+      username: sa
+      password:
+      driver-class-name: org.h2.Driver
+    read:
+      url: jdbc:h2:mem:qna;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE
+      username: sa
+      password:
+      driver-class-name: org.h2.Driver
+  jwt:
+    secret: test-secret-key-must-be-long-enough-1234567890
+    issuer: test-online-qna
+    access-token-expiration-minutes: 180
+  topics:
+    question-changed: test.qna.question.changed
+    notification-created: test.qna.notification.created

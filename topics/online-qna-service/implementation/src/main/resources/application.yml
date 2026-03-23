@@ -1,0 +1,82 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: online-qna-service
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+  data:
+    redis:
+      host: localhost
+      port: 6379
+    elasticsearch:
+      repositories:
+        enabled: true
+      client:
+        uris: http://localhost:9200
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+        default_batch_fetch_size: 100
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: online-qna
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.lab.onlineqna.*"
+        spring.json.use.type.headers: false
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    org.hibernate.SQL: debug
+    com.lab.onlineqna: debug
+
+app:
+  cache:
+    type: redis
+  messaging:
+    enabled: true
+  search:
+    enabled: true
+  datasource:
+    write:
+      url: jdbc:mysql://localhost:3306/qna_primary?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
+      username: qna
+      password: qna
+      driver-class-name: com.mysql.cj.jdbc.Driver
+    read:
+      url: jdbc:mysql://localhost:3307/qna_primary?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
+      username: qna
+      password: qna
+      driver-class-name: com.mysql.cj.jdbc.Driver
+  jwt:
+    secret: online-qna-service-secret-key-must-be-long-enough-1234567890
+    issuer: online-qna-service
+    access-token-expiration-minutes: 180
+  topics:
+    question-changed: qna.question.changed
+    notification-created: qna.notification.created
