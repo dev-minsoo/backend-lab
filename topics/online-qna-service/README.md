@@ -233,6 +233,137 @@ hot key는 **유난히 많이 조회되는 특정 캐시 키**입니다.
 5. **캐시 대상 축소**
    응답 전체를 캐싱하기보다 필요한 DTO만 저장해 payload 크기와 네트워크 부하를 줄일 수 있습니다.
 
+#### 인기 질문 리스트는 어떻게 구현할 수 있는가
+
+요구사항에 있는 "인기 질문 리스트 제공(좋아요 순, 최신 순 등)"은 정렬 기준에 따라 구현 방식이 달라집니다.
+
+##### 최신순
+
+최신순은 가장 단순합니다.
+
+- MySQL에서 `created_at desc` 정렬
+- 일반 목록 조회와 같은 read path에서 처리 가능
+
+즉 최신순은 별도 랭킹 저장소 없이도 구현 가능합니다.
+
+##### 좋아요순 / 인기순
+
+좋아요순이나 인기순은 단순 정렬보다 "집계된 점수"가 필요합니다.
+
+예를 들어:
+
+- 좋아요 수
+- 싫어요 수
+- 답변 수
+- 조회수
+- 최신성 가중치
+
+같은 값을 바탕으로 score를 계산할 수 있습니다.
+
+이런 랭킹에는 Redis **Sorted Set(ZSET)** 이 매우 잘 맞습니다.
+
+#### 왜 Redis ZSET이 랭킹에 적합한가
+
+ZSET은 `member + score` 구조를 가지며, score 기준 정렬을 유지합니다.
+
+예:
+
+- member: `question:123`
+- score: `57`
+
+좋아요가 하나 올라가면:
+
+```text
+ZINCRBY questions:popular 1 question:123
+```
+
+의미:
+
+- `questions:popular` ZSET에서
+- `question:123`의 점수를 1만큼 증가
+- 기존 점수가 있으면 증가, 없으면 새로 생성
+
+상위 20개 인기 질문을 가져오려면:
+
+```text
+ZREVRANGE questions:popular 0 19
+```
+
+의미:
+
+- score가 높은 순으로
+- 0번째부터 19번째까지
+- 즉 상위 20개 member 반환
+
+#### Elasticsearch 랭킹과 Redis 랭킹은 다름
+
+Elasticsearch도 `_score` 기반 랭킹이 있지만, 그건 **검색 연관도(relevance)** 랭킹입니다.
+
+예:
+
+- 검색어가 title에 잘 맞는가
+- content에 얼마나 많이 등장하는가
+- BM25 기준으로 얼마나 관련성이 높은가
+
+반면 Redis ZSET 랭킹은 **비즈니스 점수(business score)** 랭킹입니다.
+
+예:
+
+- 좋아요 순
+- 조회수 순
+- 운영자가 정의한 인기 점수 순
+
+즉:
+
+- 검색 결과 relevance ranking = Elasticsearch
+- 인기 질문 / 랭킹 보드 = Redis ZSET
+
+이렇게 역할이 다릅니다.
+
+#### 랭킹용 ZSET에 TTL을 두나
+
+보통은 **일반 캐시처럼 무조건 TTL을 걸지 않는 경우가 많습니다.**
+
+이유:
+
+- 랭킹은 단순 캐시라기보다 집계 데이터 성격이 강함
+- 만료되면 인기 질문 리스트가 통째로 사라질 수 있음
+- 재계산 비용이 클 수 있음
+
+그래서 자주 쓰는 방식은 두 가지입니다.
+
+1. **전체 랭킹 키를 TTL 없이 유지**
+   예: `questions:popular`
+
+2. **기간별 랭킹 키를 별도로 두고 TTL 적용**
+   예:
+   - `questions:popular:daily:2026-03-25`
+   - `questions:popular:weekly:2026-W13`
+
+기간별 키는 "오늘 인기", "이번 주 인기" 구현에도 유리하고, TTL로 자연스럽게 정리할 수 있습니다.
+
+#### 이 프로젝트에 적용한다면
+
+학습용 확장 시나리오로는 아래가 자연스럽습니다.
+
+1. **최신순**
+   MySQL `created_at desc`
+
+2. **좋아요순**
+   Redis ZSET score를 like count 기반으로 관리
+
+3. **인기순**
+   `좋아요 * 가중치 + 답변 수 * 가중치 - 싫어요 * 가중치` 같은 score를 Redis ZSET에 저장
+
+즉:
+
+- 원본 데이터: MySQL
+- 반복 조회 캐시: Redis Cache
+- 인기 랭킹: Redis ZSET
+- 검색: Elasticsearch
+
+로 역할을 나눌 수 있습니다.
+
 #### SWR(Stale-While-Revalidate)
 
 SWR은 **일단 오래된 캐시라도 빠르게 반환하고, 뒤에서 새 값을 다시 갱신하는 전략**입니다.
