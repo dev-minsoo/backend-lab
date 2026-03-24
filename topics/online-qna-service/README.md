@@ -153,6 +153,139 @@ override fun determineCurrentLookupKey(): Any =
 fun getQuestions(page: Int, size: Int): List<QuestionSummary> = ...
 ```
 
+#### Redis 캐시 적용으로 기대할 수 있는 점
+
+이 구조는 primary/replica처럼 전체 읽기 부하를 분산하는 전략이라기보다, hot key의 응답 시간을 직접 줄이고 반복 조회를 Redis가 대신 받도록 만드는 데 더 가깝습니다.
+
+1. **반복 조회 레이턴시를 크게 줄일 수 있음**
+   질문 상세나 첫 페이지 목록처럼 반복 호출되는 API는 첫 조회 이후 Redis에서 바로 응답하므로 DB 왕복 비용을 줄일 수 있습니다.
+
+2. **primary와 replica의 조회 부담을 함께 줄일 수 있음**
+   캐시 hit가 나면 아예 DB를 타지 않기 때문에, read replica가 담당하던 조회 일부도 Redis가 흡수합니다.
+
+3. **hot key에 특히 강함**
+   인기 질문, 첫 페이지 목록, 자주 방문되는 프로필처럼 동일한 키가 여러 번 조회되는 경우 효과가 큽니다.
+
+4. **애플리케이션 인스턴스가 늘어나도 같은 캐시를 공유할 수 있음**
+   로컬 메모리 캐시와 달리 Redis는 중앙 캐시이므로 여러 replica가 동일한 캐시를 함께 사용할 수 있습니다.
+
+5. **애너테이션 기반으로 빠르게 적용할 수 있음**
+   이 프로젝트처럼 `@Cacheable`, `@CacheEvict`만으로 기본 Cache Aside 패턴을 선언형으로 구현할 수 있습니다.
+
+#### 다만 같이 알아야 할 제약
+
+1. **캐시 무효화가 가장 어려운 문제임**
+   질문 상세처럼 키가 명확한 캐시는 비교적 쉽지만, 페이지네이션 목록 캐시는 어떤 페이지가 영향을 받는지 계산하기 어려워 전체 eviction 전략이 필요할 수 있습니다.
+
+2. **stale data를 허용하는 전제가 필요함**
+   쓰기 직후 매우 짧은 시간 동안 이전 캐시값이 남아 있을 수 있습니다. 이 프로젝트는 이런 eventual consistency를 일부 허용하는 방향입니다.
+
+3. **첫 조회는 여전히 DB를 탐**
+   cold read는 캐시 miss이므로 DB 조회 후 캐시에 적재됩니다. 캐시 효과는 warm read에서 드러납니다.
+
+4. **복잡한 캐시 전략은 애너테이션만으로 부족할 수 있음**
+   단순 조회 캐시는 `@Cacheable`이 편하지만, 조건부 저장, 부분 갱신, Sorted Set/Hash 같은 자료구조 활용은 `RedisTemplate`이 더 유연합니다.
+
+5. **목록 캐시는 키 설계를 잘해야 함**
+   이 프로젝트처럼 `page:size` 키를 쓰면 페이지별 캐시가 가능하지만, 정렬 조건, 필터, 검색 조건이 늘어나면 키 설계도 함께 복잡해집니다.
+
+#### 이 프로젝트에서 사용한 캐싱 전략
+
+이 프로젝트는 **Cache Aside 패턴**을 사용합니다.
+
+흐름은 아래와 같습니다.
+
+1. API가 먼저 캐시를 조회
+2. 캐시 hit면 Redis 값을 바로 반환
+3. 캐시 miss면 DB를 조회
+4. 조회 결과를 Redis에 저장
+5. 질문/답변 변경 시 관련 캐시를 eviction
+
+스프링에서는 이를 `@Cacheable`, `@CacheEvict` 애너테이션으로 선언형으로 구현했습니다.  
+즉 전략 자체는 Cache Aside이고, 구현 방식만 스프링 캐시 추상화를 쓴 것입니다.
+
+#### hot key란?
+
+hot key는 **유난히 많이 조회되는 특정 캐시 키**입니다.
+
+예를 들면:
+
+- `questionDetail::1`
+- `questionList::0:20`
+
+같은 키가 매우 자주 요청되면, DB 대신 Redis가 그 요청을 계속 받아주므로 성능 이점이 큽니다.  
+반대로 Redis 입장에서는 특정 키에 요청이 몰리기 때문에, hot key가 심하면 Redis도 병목이 될 수 있습니다.
+
+#### Redis가 병목이 되면 어떻게 하나?
+
+1. **TTL 분산**
+   모든 키가 같은 시점에 만료되지 않도록 랜덤 TTL을 섞어 cache avalanche를 줄입니다.
+
+2. **local cache + Redis 2계층**
+   정말 자주 읽히는 hot key는 JVM 로컬 캐시에도 잠깐 두어 Redis 부담을 추가로 줄일 수 있습니다.
+
+3. **key 분산과 Cluster 도입**
+   데이터 양과 트래픽이 커지면 Redis Cluster로 키를 여러 노드에 분산할 수 있습니다.
+
+4. **stampede 방지**
+   캐시 miss가 동시에 몰릴 때 락, single-flight, background refresh 같은 패턴으로 DB 폭주를 막을 수 있습니다.
+
+5. **캐시 대상 축소**
+   응답 전체를 캐싱하기보다 필요한 DTO만 저장해 payload 크기와 네트워크 부하를 줄일 수 있습니다.
+
+#### Redis Sentinel과 Redis Cluster
+
+Redis 운영 구조는 크게 Sentinel과 Cluster를 구분해서 이해하는 편이 좋습니다.
+
+##### Redis Sentinel
+
+Sentinel은 **고가용성(HA)과 failover** 중심의 구성입니다.
+
+- master를 감시
+- master 장애 시 replica 하나를 새 master로 승격
+- 클라이언트가 새 master를 찾을 수 있게 지원
+
+즉 Sentinel은 **장애가 나도 Redis 서비스를 계속 유지하게 하는 운영 구성**입니다.  
+데이터 샤딩이나 수평 확장은 핵심 목적이 아닙니다.
+
+##### Redis Cluster
+
+Cluster는 **샤딩 + failover + 수평 확장**을 함께 가져가는 구조입니다.
+
+- key를 여러 master 노드에 분산 저장
+- 각 master에 replica를 붙여 장애 시 failover 가능
+- 데이터 용량과 트래픽을 여러 노드로 나눔
+
+즉 Cluster는 "안 죽게 운영"뿐 아니라, **데이터와 트래픽을 분산해 scale-out하는 구조**입니다.
+
+##### 샤딩(sharding)이란?
+
+샤딩은 데이터를 한 서버에 다 넣지 않고 **여러 노드에 나눠 저장하는 것**입니다.
+
+예를 들어:
+
+- 노드 A가 일부 키를 담당
+- 노드 B가 일부 키를 담당
+- 노드 C가 나머지 키를 담당
+
+이렇게 나누면:
+
+- 저장 공간이 분산되고
+- 읽기/쓰기 부하도 분산되고
+- 한 노드가 감당해야 하는 트래픽이 줄어듭니다
+
+Redis Cluster는 내부적으로 key를 hash slot으로 나누어 어느 노드가 어떤 key를 맡을지 결정합니다.
+
+#### Sentinel과 Cluster를 어떻게 구분해 선택하나
+
+1. **장애 대응이 우선이고 데이터가 한 노드에 충분히 들어가면 Sentinel**
+   즉 failover가 목적일 때 적합합니다.
+
+2. **데이터 용량과 트래픽이 커져 여러 노드로 분산해야 하면 Cluster**
+   즉 샤딩과 scale-out이 필요한 경우에 적합합니다.
+
+이 프로젝트 규모에서는 단일 Redis만으로도 학습은 충분하지만, 실제 운영에서 트래픽이 더 커지면 Sentinel 또는 Cluster를 선택하는 고민으로 이어질 수 있습니다.
+
 ### 방법 3: Elasticsearch 비동기 색인
 
 **설명:**
