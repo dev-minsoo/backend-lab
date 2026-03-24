@@ -22,12 +22,14 @@ docker compose up -d
 - Redis: `6379`
 - Elasticsearch: `9200`
 - Kafka: `9092`
+- Kafka UI: `8081`
 
 호환성 기준 버전:
 
 - Redis: `7.2-alpine`
 - Elasticsearch: `8.10.4`
 - Kafka Image: `confluentinc/cp-kafka:7.6.10`
+- Kafka UI Image: `provectuslabs/kafka-ui:latest`
 
 이 조합은 "최신"보다 현재 프로젝트의 `Spring Boot 3.2.1` 의존성과의 호환성을 우선한 값입니다.
 
@@ -99,6 +101,22 @@ curl "http://localhost:8080/api/search/questions?keyword=Redis&tags=redis&tags=m
 curl http://localhost:8080/api/profiles/me \
   -H "Authorization: Bearer {TOKEN}"
 ```
+
+## 5. 인프라 UI
+
+Kafka UI:
+
+- URL: `http://localhost:8081`
+- 확인 가능 항목:
+  - Topics
+  - Messages
+  - Consumer Groups
+  - Partitions
+
+참고:
+
+- 로컬 애플리케이션은 Kafka에 `localhost:9092`로 접속합니다.
+- Kafka UI는 같은 Docker 네트워크 안에서 `kafka:29092` 내부 listener를 사용합니다.
 
 ## 구현 포인트
 
