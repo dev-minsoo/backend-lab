@@ -30,7 +30,7 @@ class Notification(
     @Column(nullable = false, length = 30)
     val referenceType: String,
 
-    @Column(nullable = false)
+    @Column(name = "is_read", nullable = false)
     var read: Boolean = false
 ) : BaseEntity() {
     fun markRead() {

@@ -37,7 +37,7 @@ class EventConsumers(
 
     @KafkaListener(
         topics = ["\${app.topics.question-changed}"],
-        containerFactory = "kafkaListenerContainerFactory",
+        containerFactory = "questionChangedKafkaListenerContainerFactory",
         autoStartup = "\${app.messaging.enabled:true}"
     )
     @Transactional
@@ -47,7 +47,7 @@ class EventConsumers(
 
     @KafkaListener(
         topics = ["\${app.topics.notification-created}"],
-        containerFactory = "kafkaListenerContainerFactory",
+        containerFactory = "notificationCreatedKafkaListenerContainerFactory",
         autoStartup = "\${app.messaging.enabled:true}"
     )
     @Transactional
