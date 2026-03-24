@@ -12,6 +12,9 @@ import com.lab.onlineqna.dto.QuestionSearchResponse
 import com.lab.onlineqna.dto.QuestionSummary
 import com.lab.onlineqna.dto.UserSummary
 import com.lab.onlineqna.dto.VoteSummary
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneId
 
 fun User.toSummary(): UserSummary = UserSummary(
     id = id!!,
@@ -71,7 +74,7 @@ fun Question.toSearchDocument(): QuestionSearchDocument = QuestionSearchDocument
     authorNickname = author.nickname,
     answerCount = answerCount,
     acceptedAnswerId = acceptedAnswerId,
-    createdAt = createdAt
+    createdAt = createdAt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 )
 
 fun QuestionSearchDocument.toResponse(): QuestionSearchResponse = QuestionSearchResponse(
@@ -82,5 +85,5 @@ fun QuestionSearchDocument.toResponse(): QuestionSearchResponse = QuestionSearch
     authorNickname = authorNickname,
     answerCount = answerCount,
     acceptedAnswerId = acceptedAnswerId,
-    createdAt = createdAt
+    createdAt = LocalDateTime.ofInstant(Instant.ofEpochMilli(createdAt), ZoneId.systemDefault())
 )

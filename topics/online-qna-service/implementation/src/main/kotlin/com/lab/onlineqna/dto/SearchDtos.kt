@@ -14,7 +14,7 @@ data class QuestionSearchDocument(
     val authorNickname: String,
     val answerCount: Int,
     val acceptedAnswerId: Long?,
-    val createdAt: LocalDateTime
+    val createdAt: Long
 )
 
 data class QuestionSearchResponse(
