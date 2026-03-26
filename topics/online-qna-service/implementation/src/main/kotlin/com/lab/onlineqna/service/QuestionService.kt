@@ -20,6 +20,7 @@ import com.lab.onlineqna.repository.ReportRepository
 import com.lab.onlineqna.repository.UserRepository
 import com.lab.onlineqna.support.toDetail
 import com.lab.onlineqna.support.toSummary
+import org.springframework.cache.annotation.Caching
 import org.springframework.cache.annotation.CacheEvict
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.data.domain.PageRequest
@@ -56,7 +57,12 @@ class QuestionService(
     }
 
     @Transactional
-    @CacheEvict(cacheNames = ["questionDetail", "questionList"], key = "#questionId", allEntries = false)
+    @Caching(
+        evict = [
+            CacheEvict(cacheNames = ["questionDetail"], key = "#questionId"),
+            CacheEvict(cacheNames = ["questionList"], allEntries = true)
+        ]
+    )
     fun update(userId: Long, questionId: Long, request: UpdateQuestionRequest): QuestionDetailResponse {
         val question = loadQuestion(questionId)
         validateOwner(question.author.id!!, userId)
@@ -66,7 +72,12 @@ class QuestionService(
     }
 
     @Transactional
-    @CacheEvict(cacheNames = ["questionDetail", "questionList"], key = "#questionId", allEntries = false)
+    @Caching(
+        evict = [
+            CacheEvict(cacheNames = ["questionDetail"], key = "#questionId"),
+            CacheEvict(cacheNames = ["questionList"], allEntries = true)
+        ]
+    )
     fun delete(userId: Long, questionId: Long) {
         val question = loadQuestion(questionId)
         validateOwner(question.author.id!!, userId)
