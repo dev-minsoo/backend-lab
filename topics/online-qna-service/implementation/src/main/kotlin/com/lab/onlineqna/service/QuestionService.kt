@@ -89,17 +89,29 @@ class QuestionService(
     @Cacheable(cacheNames = ["questionDetail"], key = "#questionId")
     fun getQuestion(questionId: Long): QuestionDetailResponse {
         val question = loadQuestion(questionId)
-        val answers = answerRepository.findActiveAnswersByQuestionId(questionId)
-            .map { it.toSummary(voteService.summarize(VoteTargetType.ANSWER, it.id!!)) }
+        val answerEntities = answerRepository.findActiveAnswersByQuestionId(questionId)
+        val answerVoteSummaries = voteService.summarizeAll(
+            VoteTargetType.ANSWER,
+            answerEntities.mapNotNull { it.id }
+        )
+        val answers = answerEntities.map {
+            it.toSummary(answerVoteSummaries[it.id!!] ?: com.lab.onlineqna.dto.VoteSummary(likes = 0, dislikes = 0))
+        }
         return question.toDetail(voteService.summarize(VoteTargetType.QUESTION, questionId), answers)
     }
 
     @Transactional(readOnly = true)
     @Cacheable(cacheNames = ["questionList"], key = "#page + ':' + #size")
-    fun getQuestions(page: Int, size: Int): List<QuestionSummary> =
-        questionRepository.findActiveQuestions(PageRequest.of(page, size))
-            .content
-            .map { it.toSummary(voteService.summarize(VoteTargetType.QUESTION, it.id!!)) }
+    fun getQuestions(page: Int, size: Int): List<QuestionSummary> {
+        val questions = questionRepository.findActiveQuestions(PageRequest.of(page, size)).content
+        val voteSummaries = voteService.summarizeAll(
+            VoteTargetType.QUESTION,
+            questions.mapNotNull { it.id }
+        )
+        return questions.map { question ->
+            question.toSummary(voteSummaries[question.id!!] ?: com.lab.onlineqna.dto.VoteSummary(likes = 0, dislikes = 0))
+        }
+    }
 
     @Transactional
     fun reportQuestion(userId: Long, questionId: Long, request: ReportRequest) {
@@ -116,10 +128,16 @@ class QuestionService(
     }
 
     @Transactional(readOnly = true)
-    fun getQuestionsByAuthor(userId: Long): List<QuestionSummary> =
-        questionRepository.findActiveQuestionsByAuthorId(userId, PageRequest.of(0, 20))
-            .content
-            .map { it.toSummary(voteService.summarize(VoteTargetType.QUESTION, it.id!!)) }
+    fun getQuestionsByAuthor(userId: Long): List<QuestionSummary> {
+        val questions = questionRepository.findActiveQuestionsByAuthorId(userId, PageRequest.of(0, 20)).content
+        val voteSummaries = voteService.summarizeAll(
+            VoteTargetType.QUESTION,
+            questions.mapNotNull { it.id }
+        )
+        return questions.map { question ->
+            question.toSummary(voteSummaries[question.id!!] ?: com.lab.onlineqna.dto.VoteSummary(likes = 0, dislikes = 0))
+        }
+    }
 
     private fun publishQuestionChanged(questionId: Long) {
         eventPublisher.publishQuestionChanged(QuestionChangedEvent(questionId, ChangeType.UPSERT))

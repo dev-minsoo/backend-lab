@@ -113,9 +113,16 @@ class AnswerService(
     }
 
     @Transactional(readOnly = true)
-    fun getAnswersByAuthor(userId: Long): List<AnswerSummary> =
-        answerRepository.findActiveAnswersByAuthorId(userId)
-            .map { it.toSummary(voteService.summarize(com.lab.onlineqna.domain.VoteTargetType.ANSWER, it.id!!)) }
+    fun getAnswersByAuthor(userId: Long): List<AnswerSummary> {
+        val answers = answerRepository.findActiveAnswersByAuthorId(userId)
+        val voteSummaries = voteService.summarizeAll(
+            com.lab.onlineqna.domain.VoteTargetType.ANSWER,
+            answers.mapNotNull { it.id }
+        )
+        return answers.map { answer ->
+            answer.toSummary(voteSummaries[answer.id!!] ?: com.lab.onlineqna.dto.VoteSummary(likes = 0, dislikes = 0))
+        }
+    }
 
     private fun publishNotification(userId: Long, message: String, referenceId: Long, referenceType: String) {
         eventPublisher.publishNotificationCreated(

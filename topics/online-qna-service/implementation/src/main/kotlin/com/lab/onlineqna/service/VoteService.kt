@@ -32,4 +32,23 @@ class VoteService(
         likes = voteRepository.countByTargetTypeAndTargetIdAndType(targetType, targetId, VoteType.LIKE),
         dislikes = voteRepository.countByTargetTypeAndTargetIdAndType(targetType, targetId, VoteType.DISLIKE)
     )
+
+    @Transactional(readOnly = true)
+    fun summarizeAll(targetType: VoteTargetType, targetIds: Collection<Long>): Map<Long, VoteSummary> {
+        if (targetIds.isEmpty()) {
+            return emptyMap()
+        }
+
+        val summaries = targetIds.distinct().associateWith { VoteSummary(likes = 0, dislikes = 0) }.toMutableMap()
+
+        voteRepository.countGroupedByTargetIds(targetType, targetIds).forEach { projection ->
+            val current = summaries.getValue(projection.targetId)
+            summaries[projection.targetId] = when (projection.type) {
+                VoteType.LIKE -> current.copy(likes = projection.count)
+                VoteType.DISLIKE -> current.copy(dislikes = projection.count)
+            }
+        }
+
+        return summaries
+    }
 }
