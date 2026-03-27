@@ -21,25 +21,15 @@
   - `VoteService.summarizeAll(...)` 추가
   - 질문 목록/내 질문 목록/내 답변 목록/질문 상세 답변 집계에 배치 요약 적용
 
+### 3. Kafka UI 외 운영 편의 문서 보강
+
+- 완료 커밋: `92fbc05`
+- 반영 내용:
+  - Kafka UI에서 확인할 `Topics`, `Messages`, `Consumer Groups` 관찰 포인트 정리
+  - lag 해석 기준 추가
+  - 질문 작성/답변 작성 시 어떤 payload와 lag를 봐야 하는지 실습 체크리스트 반영
+
 ## 빠르게 손볼 수 있는 항목
-
-## 3. Kafka UI 외 운영 편의 문서 보강
-
-### 현재 상태
-
-Kafka UI는 붙였지만 운영/실습 관찰 포인트가 더 체계화될 수 있습니다.
-
-### 개선 방향
-
-- 토픽별 메시지 예시
-- consumer group 확인 포인트
-- lag 해석 가이드
-- 알림/검색 이벤트 흐름 시퀀스 정리
-
-### 관련 파일
-
-- [README.md](/Users/q/projects/playground/backend-lab/topics/online-qna-service/implementation/README.md)
-- [practice-checklist.md](/Users/q/projects/playground/backend-lab/topics/online-qna-service/practice-checklist.md)
 
 ## 중간 난이도 확장 항목
 
@@ -187,16 +177,16 @@ README에는 Redis ZSET 기반 아이디어만 있고 실제 구현은 없습니
 
 ### 1순위
 
-- Kafka UI 외 운영 편의 문서 보강
 - Kafka DLQ / retry
 - 인기 질문 Redis ZSET 구현
+- ES 검색 품질 향상
 
 ### 2순위
 
-- ES 검색 품질 향상
 - 읽기 일관성 보강
 - Outbox Pattern
+- anti-abuse / rate limit
 
 ### 3순위
 
-- anti-abuse / rate limit
+- 없음
