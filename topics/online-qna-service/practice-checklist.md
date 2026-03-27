@@ -56,26 +56,28 @@ curl http://localhost:9200/questions/_search?pretty
 
 ### Kafka
 
-토픽 목록:
+- Kafka UI: `http://localhost:8081`
+- 주요 토픽:
+  - `qna.question.changed`
+  - `qna.notification.created`
+- 주요 관찰 지점:
+  - `Topics`: 메시지 payload 확인
+  - `Consumer Groups`: lag 확인
+  - `Messages`: questionId, changeType, userId 같은 핵심 필드 확인
+
+lag 해석:
+
+- `0`: 현재까지 들어온 메시지를 consumer가 다 처리한 상태
+- 순간적으로 증가 후 다시 `0`: 정상적인 소비 중
+- 계속 증가: consumer 병목 또는 예외 가능성
+- 메시지는 있는데 lag가 줄지 않으면 앱 로그도 같이 확인
+
+CLI로 직접 확인하고 싶으면:
 
 ```bash
 docker exec -it online-qna-kafka kafka-topics --bootstrap-server localhost:9092 --list
-```
-
-이벤트 확인:
-
-```bash
-docker exec -it online-qna-kafka kafka-console-consumer \
-  --bootstrap-server localhost:9092 \
-  --topic qna.question.changed \
-  --from-beginning
-```
-
-```bash
-docker exec -it online-qna-kafka kafka-console-consumer \
-  --bootstrap-server localhost:9092 \
-  --topic qna.notification.created \
-  --from-beginning
+docker exec -it online-qna-kafka kafka-console-consumer --bootstrap-server localhost:9092 --topic qna.question.changed --from-beginning
+docker exec -it online-qna-kafka kafka-console-consumer --bootstrap-server localhost:9092 --topic qna.notification.created --from-beginning
 ```
 
 ## 실습 시나리오
@@ -149,6 +151,8 @@ SELECT id, email, nickname, role FROM users;
 - primary의 `questions`, `tags`, `question_tags` 저장
 - Kafka `qna.question.changed` 이벤트 발행
 - Kafka `qna.notification.created` 이벤트 발행
+- Kafka UI에서 두 토픽의 새 메시지 payload 확인
+- Kafka UI `Consumer Groups`에서 lag가 잠깐 생겼다가 다시 `0`으로 돌아오는지 확인
 - Elasticsearch `questions` 인덱스에 문서 생성
 - Redis에는 아직 상세 캐시가 없을 수 있음
 
@@ -168,6 +172,15 @@ SELECT * FROM tags;
 SELECT * FROM question_tags;
 SELECT * FROM notifications;
 ```
+
+### Kafka UI 확인
+
+- `Topics > qna.question.changed`
+  - `questionId`, `changeType=UPSERT`
+- `Topics > qna.notification.created`
+  - `userId`, `referenceId`, `referenceType=QUESTION`
+- `Consumer Groups`
+  - lag가 다시 `0`으로 내려오는지 확인
 
 ### Elasticsearch 확인
 
@@ -297,6 +310,8 @@ curl -X GET http://localhost:9200/questions/_search \
 - 질문 작성자에게 알림 생성
 - `questionDetail`, `questionList` 캐시 무효화
 - Kafka 질문 변경 이벤트 재발행
+- Kafka UI에서 알림 / 질문 변경 메시지 추가 발행 확인
+- Kafka UI `Consumer Groups`에서 lag 확인
 - Elasticsearch 문서 갱신
 
 ### 핵심 코드
@@ -312,6 +327,15 @@ SELECT id, question_id, author_id, accepted, deleted FROM answers;
 SELECT id, title, answer_count, accepted_answer_id FROM questions;
 SELECT id, user_id, message, reference_id, reference_type FROM notifications ORDER BY id DESC;
 ```
+
+### Kafka UI 확인
+
+- `qna.notification.created`
+  - 답변 작성자 기준이 아니라 질문 작성자에게 알림이 갔는지 payload 확인
+- `qna.question.changed`
+  - 동일 questionId에 대해 UPSERT 이벤트가 추가됐는지 확인
+- `Consumer Groups`
+  - lag가 남아 있으면 앱 로그에서 consumer 예외도 같이 확인
 
 ## Step 7. 답변 채택
 

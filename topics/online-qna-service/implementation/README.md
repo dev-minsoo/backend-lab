@@ -113,6 +113,35 @@ Kafka UI:
   - Consumer Groups
   - Partitions
 
+Kafka UI에서 보면 좋은 포인트:
+
+- `Topics > qna.question.changed`
+  - 질문 생성/수정/삭제 이벤트가 쌓이는지 확인
+- `Topics > qna.notification.created`
+  - 알림 생성 이벤트 payload 확인
+- `Consumer Groups`
+  - 각 consumer group의 lag 확인
+  - lag가 `0`이면 현재까지 들어온 메시지를 따라잡은 상태
+  - lag가 증가한 채 유지되면 consumer가 처리 속도를 못 따라가거나 오류로 멈춘 상태일 수 있음
+- `Messages`
+  - 질문 생성 후 `questionId`, `changeType`
+  - 알림 생성 후 `userId`, `referenceId`, `referenceType`
+  - 값이 기대한 payload인지 바로 확인 가능
+
+lag를 볼 때 해석 기준:
+
+- 짧게 `1 ~ 2` 정도 튀었다가 다시 `0`으로 내려가면 정상적인 소비 과정일 수 있음
+- 계속 `0`이면 producer는 보내고 consumer는 잘 처리하고 있는 상태
+- 계속 누적되면 consumer 병목, 예외 재시도, deserialization 문제를 의심
+- 메시지는 있는데 lag가 줄지 않으면 앱 로그와 함께 봐야 함
+
+실습용 관찰 순서:
+
+1. 질문 생성 또는 답변 작성
+2. Kafka UI `Topics`에서 메시지 payload 확인
+3. `Consumer Groups`에서 lag가 일시적으로 생겼다가 다시 `0`으로 돌아오는지 확인
+4. 이후 MySQL notifications 또는 Elasticsearch 반영 결과 확인
+
 참고:
 
 - 로컬 애플리케이션은 Kafka에 `localhost:9092`로 접속합니다.
