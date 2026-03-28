@@ -29,11 +29,20 @@
   - lag 해석 기준 추가
   - 질문 작성/답변 작성 시 어떤 payload와 lag를 봐야 하는지 실습 체크리스트 반영
 
+### 4. 읽기 일관성 보강
+
+- 완료 커밋: `61010c5`
+- 반영 내용:
+  - `@UsePrimaryDataSource` annotation과 AOP 컨텍스트 추가
+  - `@Transactional(readOnly = true)` 경로라도 강한 일관성이 필요한 조회는 primary 강제 라우팅
+  - `login`, `getQuestion`, `getQuestionsByAuthor`, `getAnswersByAuthor`, `getProfile`에 적용
+  - 라우팅 결정 로직 단위 테스트 추가
+
 ## 빠르게 손볼 수 있는 항목
 
 ## 중간 난이도 확장 항목
 
-## 4. Kafka DLQ / retry / backoff 적용
+## 5. Kafka DLQ / retry / backoff 적용
 
 ### 현재 상태
 
@@ -54,7 +63,7 @@
 
 - [KafkaConfig.kt](/Users/q/projects/playground/backend-lab/topics/online-qna-service/implementation/src/main/kotlin/com/lab/onlineqna/config/KafkaConfig.kt)
 
-## 5. 인기 질문 랭킹 구현
+## 6. 인기 질문 랭킹 구현
 
 ### 현재 상태
 
@@ -76,7 +85,7 @@ README에는 Redis ZSET 기반 아이디어만 있고 실제 구현은 없습니
 - 신규 서비스/컨트롤러 필요
 - [VoteService.kt](/Users/q/projects/playground/backend-lab/topics/online-qna-service/implementation/src/main/kotlin/com/lab/onlineqna/service/VoteService.kt)
 
-## 6. Elasticsearch 검색 품질 향상
+## 7. Elasticsearch 검색 품질 향상
 
 ### 현재 상태
 
@@ -100,28 +109,6 @@ README에는 Redis ZSET 기반 아이디어만 있고 실제 구현은 없습니
 
 - [ElasticSearchIndexService.kt](/Users/q/projects/playground/backend-lab/topics/online-qna-service/implementation/src/main/kotlin/com/lab/onlineqna/service/ElasticSearchIndexService.kt)
 - [SearchDtos.kt](/Users/q/projects/playground/backend-lab/topics/online-qna-service/implementation/src/main/kotlin/com/lab/onlineqna/dto/SearchDtos.kt)
-
-## 7. 읽기 일관성 보강
-
-### 현재 상태
-
-`@Transactional(readOnly = true)` 기준으로 replica 라우팅만 합니다.
-
-### 문제
-
-- write 직후 read 시 replica lag 영향 가능
-- read-after-write 보장 필요 API에서 오동작 가능
-
-### 개선 방향
-
-- primary fallback
-- lag 감지
-- 특정 API는 강제 primary read
-
-### 관련 파일
-
-- [DataSourceConfig.kt](/Users/q/projects/playground/backend-lab/topics/online-qna-service/implementation/src/main/kotlin/com/lab/onlineqna/config/DataSourceConfig.kt)
-- 서비스 계층 `@Transactional` 설계
 
 ## 더 큰 구조 개선 항목
 
@@ -183,7 +170,6 @@ README에는 Redis ZSET 기반 아이디어만 있고 실제 구현은 없습니
 
 ### 2순위
 
-- 읽기 일관성 보강
 - Outbox Pattern
 - anti-abuse / rate limit
 
