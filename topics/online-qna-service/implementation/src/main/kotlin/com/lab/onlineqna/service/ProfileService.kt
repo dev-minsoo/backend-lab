@@ -1,5 +1,6 @@
 package com.lab.onlineqna.service
 
+import com.lab.onlineqna.config.UsePrimaryDataSource
 import com.lab.onlineqna.dto.UserProfileResponse
 import com.lab.onlineqna.exception.DomainException
 import com.lab.onlineqna.repository.NotificationRepository
@@ -18,6 +19,7 @@ class ProfileService(
 ) {
 
     @Transactional(readOnly = true)
+    @UsePrimaryDataSource
     fun getProfile(userId: Long): UserProfileResponse {
         val user = userRepository.findById(userId).orElseThrow { DomainException("사용자를 찾을 수 없습니다.") }
         return UserProfileResponse(

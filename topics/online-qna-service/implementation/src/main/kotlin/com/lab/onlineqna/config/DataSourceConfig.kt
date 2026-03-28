@@ -43,12 +43,10 @@ class DataSourceConfig {
         @Qualifier("readDataSource") readDataSource: DataSource
     ): DataSource {
         val routingDataSource = object : AbstractRoutingDataSource() {
-            override fun determineCurrentLookupKey(): Any =
-                if (TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
-                    DataSourceType.READ
-                } else {
-                    DataSourceType.WRITE
-                }
+            override fun determineCurrentLookupKey(): Any = DataSourceRoutingDecider.determine(
+                isReadOnlyTransaction = TransactionSynchronizationManager.isCurrentTransactionReadOnly(),
+                isForceWrite = DataSourceRoutingContextHolder.isForceWrite()
+            )
         }
         routingDataSource.setDefaultTargetDataSource(writeDataSource)
         routingDataSource.setTargetDataSources(

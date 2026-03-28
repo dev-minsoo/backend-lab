@@ -1,6 +1,7 @@
 package com.lab.onlineqna.service
 
 import com.lab.onlineqna.domain.User
+import com.lab.onlineqna.config.UsePrimaryDataSource
 import com.lab.onlineqna.dto.AuthResponse
 import com.lab.onlineqna.dto.LoginRequest
 import com.lab.onlineqna.dto.SignUpRequest
@@ -36,6 +37,7 @@ class AuthService(
     }
 
     @Transactional(readOnly = true)
+    @UsePrimaryDataSource
     fun login(request: LoginRequest): AuthResponse {
         val user = userRepository.findByEmail(request.email)
             .orElseThrow { DomainException("이메일 또는 비밀번호가 올바르지 않습니다.") }

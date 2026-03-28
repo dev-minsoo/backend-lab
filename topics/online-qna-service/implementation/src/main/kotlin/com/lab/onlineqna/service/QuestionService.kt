@@ -5,6 +5,7 @@ import com.lab.onlineqna.domain.Report
 import com.lab.onlineqna.domain.ReportTargetType
 import com.lab.onlineqna.domain.User
 import com.lab.onlineqna.domain.VoteTargetType
+import com.lab.onlineqna.config.UsePrimaryDataSource
 import com.lab.onlineqna.dto.CreateQuestionRequest
 import com.lab.onlineqna.dto.QuestionDetailResponse
 import com.lab.onlineqna.dto.QuestionSummary
@@ -86,6 +87,7 @@ class QuestionService(
     }
 
     @Transactional(readOnly = true)
+    @UsePrimaryDataSource
     @Cacheable(cacheNames = ["questionDetail"], key = "#questionId")
     fun getQuestion(questionId: Long): QuestionDetailResponse {
         val question = loadQuestion(questionId)
@@ -128,6 +130,7 @@ class QuestionService(
     }
 
     @Transactional(readOnly = true)
+    @UsePrimaryDataSource
     fun getQuestionsByAuthor(userId: Long): List<QuestionSummary> {
         val questions = questionRepository.findActiveQuestionsByAuthorId(userId, PageRequest.of(0, 20)).content
         val voteSummaries = voteService.summarizeAll(

@@ -4,6 +4,7 @@ import com.lab.onlineqna.domain.Answer
 import com.lab.onlineqna.domain.Report
 import com.lab.onlineqna.domain.ReportTargetType
 import com.lab.onlineqna.domain.User
+import com.lab.onlineqna.config.UsePrimaryDataSource
 import com.lab.onlineqna.dto.AnswerSummary
 import com.lab.onlineqna.dto.CreateAnswerRequest
 import com.lab.onlineqna.dto.ReportRequest
@@ -113,6 +114,7 @@ class AnswerService(
     }
 
     @Transactional(readOnly = true)
+    @UsePrimaryDataSource
     fun getAnswersByAuthor(userId: Long): List<AnswerSummary> {
         val answers = answerRepository.findActiveAnswersByAuthorId(userId)
         val voteSummaries = voteService.summarizeAll(
