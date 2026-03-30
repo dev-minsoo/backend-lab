@@ -153,6 +153,8 @@ lag를 볼 때 해석 기준:
 
 - `@Transactional(readOnly = true)` 경로는 replica
 - 쓰기 트랜잭션은 primary
+- `@UsePrimaryDataSource`가 붙은 읽기 전용 조회는 primary로 강제 라우팅
+- 적용 대상: `login`, `getQuestion`, `getQuestionsByAuthor`, `getAnswersByAuthor`, `getProfile`
 
 ### 2. Redis 캐시
 
@@ -172,5 +174,6 @@ lag를 볼 때 해석 기준:
 ## 주의사항
 
 - replica는 asynchronous replication 특성상 약간의 지연이 있을 수 있습니다.
+- 회원가입 직후 로그인, 질문/답변 작성 직후 상세/프로필 조회처럼 read-after-write가 중요한 경로는 stale read가 발생할 수 있어 primary 우회가 필요합니다.
 - 검색과 알림은 eventual consistency 기반입니다.
 - 로컬 compose는 학습용이며 운영용 HA 설정과는 다릅니다.

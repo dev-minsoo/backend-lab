@@ -128,6 +128,33 @@ override fun determineCurrentLookupKey(): Any =
 4. **트랜잭션 경계가 더 중요해짐**
    이 프로젝트처럼 `readOnly` 여부로 라우팅하는 구조에서는 서비스 계층의 `@Transactional`, `@Transactional(readOnly = true)` 의도가 명확해야 합니다.
 
+#### stale read가 실제로 문제 되는 순간
+
+replica는 primary를 비동기로 따라오므로, "쓰기 직후 곧바로 읽는" 흐름에서는 아직 최신 변경분이 반영되지 않았을 수 있습니다. 이때 사용자는 방금 성공한 작업이 실패한 것처럼 느끼게 됩니다.
+
+1. **회원가입 직후 로그인**
+   회원가입은 primary에 반영되었지만, 직후 로그인 조회가 replica로 가면 방금 생성한 사용자를 찾지 못할 수 있습니다.
+
+2. **질문/답변 작성 직후 상세 조회**
+   저장은 성공했는데 상세 화면이나 작성자 목록이 replica에서 아직 이전 상태를 보고 있으면, 방금 작성한 글이나 답변이 보이지 않을 수 있습니다.
+
+3. **프로필 진입 시 내 글/내 답변/알림 확인**
+   프로필은 여러 read API를 한 번에 호출하므로, replica lag가 남아 있으면 "작성은 되었는데 내 활동 내역에는 안 보임" 같은 어색한 상태가 발생할 수 있습니다.
+
+이 프로젝트는 이런 구간을 `stale read` 위험 구간으로 보고, 모든 조회를 primary로 보내지 않고 최신성이 중요한 경로만 선별적으로 primary로 우회합니다.
+
+```kotlin
+@Transactional(readOnly = true)
+@UsePrimaryDataSource
+fun getProfile(userId: Long): UserProfileResponse { ... }
+```
+
+이 방식의 의도는 단순합니다.
+
+- 기본 정책: 읽기 전용 조회는 replica
+- 예외 정책: read-after-write 일관성이 중요한 조회만 primary
+- 결과: 읽기 부하 분산은 유지하면서 사용자 체감 오류를 줄임
+
 ### 방법 2: Redis 캐시로 상세/목록 조회 최적화
 
 **설명:**
