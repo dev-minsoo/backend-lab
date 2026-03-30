@@ -1,0 +1,22 @@
+spring:
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/cdc_lab_test
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: cdc-lab-consumer-test
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+    producer:
+      acks: all
+
+app:
+  pipeline:
+    topic: order-events-test
+    partition-count: 3
+    consumer-concurrency: 3
+
+logging:
+  level:
+    root: WARN
