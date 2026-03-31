@@ -17,7 +17,7 @@
 IntelliJ IDEA에서 아래 경로를 엽니다.
 
 ```bash
-/Users/amir.woo/workspace/dev-minsoo/backend-lab/topics/mongodb-cdc-kafka-pipeline/implementation
+/Users/q/projects/playground/backend-lab/topics/mongodb-cdc-kafka-pipeline/implementation
 ```
 
 ### 2. JDK 설정
@@ -49,7 +49,7 @@ IntelliJ IDEA에서 아래 경로를 엽니다.
 MongoDB와 Kafka UI를 함께 띄우려면:
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 포함된 서비스:
