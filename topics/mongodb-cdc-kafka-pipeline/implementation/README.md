@@ -58,6 +58,108 @@ docker compose up -d
 - Kafka 3.7 (KRaft)
 - Kafka UI
 
+MongoDB Change Stream 계열 기능을 연습하려면 replica set 초기화가 한 번 필요합니다.
+
+```bash
+docker exec mongodb-cdc-lab mongosh --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"localhost:27017"}]})'
+```
+
+이미 초기화된 뒤라면 아래 명령으로 상태만 확인하면 됩니다.
+
+```bash
+docker exec mongodb-cdc-lab mongosh --quiet --eval 'rs.status().ok'
+```
+
+## 🧪 바로 해보는 실습
+
+### 1. 애플리케이션 실행
+
+이미 8080 포트를 쓰는 앱이 있다면 8082 같은 다른 포트로 실행합니다.
+
+```bash
+./gradlew bootRun
+./gradlew bootRun --args='--server.port=8082'
+```
+
+### 2. 주문 변경 이벤트 발행
+
+아래 요청은 "MongoDB 변경 이벤트가 Kafka로 전달된다"는 상황을 단순화해 재현합니다.
+
+```bash
+curl -X POST http://localhost:8080/lab/orders/events \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "aggregateId": "order-100",
+    "version": 1,
+    "status": "CREATED",
+    "customerId": "user-1",
+    "totalAmount": 15000
+  }'
+```
+
+응답으로 발행된 CDC 이벤트를 확인할 수 있습니다.
+
+### 3. MongoDB projection 조회
+
+Kafka consumer가 이벤트를 읽어 projection을 MongoDB에 반영하면 아래 조회가 성공합니다.
+
+```bash
+curl http://localhost:8080/lab/orders/order-100/projection
+```
+
+예상 응답:
+
+```json
+{
+  "aggregateId": "order-100",
+  "latestAppliedVersion": 1,
+  "status": "CREATED",
+  "customerId": "user-1",
+  "totalAmount": 15000
+}
+```
+
+### 4. 같은 aggregate의 다음 버전 발행
+
+```bash
+curl -X POST http://localhost:8080/lab/orders/events \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "aggregateId": "order-100",
+    "version": 2,
+    "status": "PAID",
+    "customerId": "user-1",
+    "totalAmount": 15000
+  }'
+```
+
+다시 projection을 조회하면 `latestAppliedVersion`과 `status`가 갱신됩니다.
+
+### 5. 이전 버전 재전송으로 멱등성 확인
+
+이미 반영된 오래된 버전을 다시 보내도 projection은 되돌아가지 않습니다.
+
+```bash
+curl -X POST http://localhost:8080/lab/orders/events \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "aggregateId": "order-100",
+    "version": 1,
+    "status": "CREATED",
+    "customerId": "user-1",
+    "totalAmount": 15000
+  }'
+```
+
+이후 projection을 다시 조회하면 최신 버전 2 상태가 유지됩니다.
+
+### 6. Kafka UI에서 topic / partition 확인
+
+- [http://localhost:8081](http://localhost:8081) 접속
+- `order-events` 토픽 확인
+- partition 수가 3개인지 확인
+- 같은 `aggregateId`를 반복 발행하며 어느 partition으로 가는지 관찰
+
 ## 🔬 학습 시나리오
 
 ### 시나리오 1: CDC 유실 검증

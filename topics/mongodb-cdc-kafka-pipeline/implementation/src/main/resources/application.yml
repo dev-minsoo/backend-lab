@@ -3,9 +3,11 @@ spring:
     name: mongodb-cdc-kafka-pipeline
   data:
     mongodb:
-      uri: mongodb://localhost:27017/cdc_lab
+      uri: mongodb://localhost:27017/cdc_lab?replicaSet=rs0
   kafka:
     bootstrap-servers: localhost:9092
+    admin:
+      auto-create: true
     consumer:
       group-id: cdc-lab-consumer
       auto-offset-reset: earliest
