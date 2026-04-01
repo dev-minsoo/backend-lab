@@ -6,9 +6,17 @@ import com.lab.mongodbcdckafka.domain.IncrementalProjection
 import com.lab.mongodbcdckafka.domain.ModelingProfile
 import com.lab.mongodbcdckafka.domain.OperationType
 import com.lab.mongodbcdckafka.domain.PipelineStage
+import com.lab.mongodbcdckafka.service.CdcVerificationEventRequest
+import com.lab.mongodbcdckafka.service.CdcVerificationLabService
+import com.lab.mongodbcdckafka.service.CdcVerificationRequest
+import com.lab.mongodbcdckafka.service.FailureSimulationType
 import com.lab.mongodbcdckafka.service.CdcVerificationService
+import com.lab.mongodbcdckafka.service.KafkaFailureSimulationRequest
+import com.lab.mongodbcdckafka.service.KafkaFailureSimulationService
 import com.lab.mongodbcdckafka.service.KafkaDeliveryRiskService
+import com.lab.mongodbcdckafka.service.ModelingDecisionRequest
 import com.lab.mongodbcdckafka.service.MongoModelingDecisionService
+import com.lab.mongodbcdckafka.service.MongoModelingLabService
 import com.lab.mongodbcdckafka.service.OrderingGuaranteeService
 import com.lab.mongodbcdckafka.service.ScopeFunctionGuideService
 import io.kotest.matchers.collections.shouldContain
@@ -40,6 +48,15 @@ class MongoDbCdcKafkaPipelineTest {
 
     @Autowired
     private lateinit var scopeFunctionGuideService: ScopeFunctionGuideService
+
+    @Autowired
+    private lateinit var cdcVerificationLabService: CdcVerificationLabService
+
+    @Autowired
+    private lateinit var mongoModelingLabService: MongoModelingLabService
+
+    @Autowired
+    private lateinit var kafkaFailureSimulationService: KafkaFailureSimulationService
 
     @Test
     @DisplayName("CDC 유실 검증 시 resume token 누락을 탐지한다")
@@ -146,6 +163,61 @@ class MongoDbCdcKafkaPipelineTest {
 
         guides shouldHaveSize 5
         guides.map { it.name } shouldContain "apply"
+    }
+
+    @Test
+    @DisplayName("CDC 검증 API용 서비스는 누락 토큰과 count mismatch를 함께 돌려준다")
+    fun `should build cdc verification response`() {
+        val response = cdcVerificationLabService.verify(
+            CdcVerificationRequest(
+                events = listOf(
+                    CdcVerificationEventRequest(resumeToken = 101, aggregateId = "order-1", version = 1),
+                    CdcVerificationEventRequest(resumeToken = 103, aggregateId = "order-1", version = 2),
+                ),
+                countSnapshot = CountSnapshot(sourceCount = 2, topicCount = 2, sinkCount = 1),
+                projections = listOf(
+                    IncrementalProjection(aggregateId = "order-1", latestAppliedVersion = 1),
+                ),
+            )
+        )
+
+        response.missingResumeTokens shouldBe listOf(102L)
+        response.countFindings.single() shouldContain "sink"
+        response.versionFindings.single() shouldContain "최신 버전 2"
+    }
+
+    @Test
+    @DisplayName("Mongo 모델링 판단 API용 서비스는 이유까지 함께 반환한다")
+    fun `should explain modeling decision`() {
+        val response = mongoModelingLabService.decide(
+            ModelingDecisionRequest(
+                readTogether = true,
+                updateTogether = true,
+                boundedCardinality = true,
+                independentlyQueriedChildren = false,
+            )
+        )
+
+        response.strategy.name shouldBe "EMBED"
+        response.reason shouldContain "Embed"
+    }
+
+    @Test
+    @DisplayName("Kafka 실패 시뮬레이션은 consumer 선커밋 시 sink mismatch를 보여준다")
+    fun `should simulate commit before processing risk`() {
+        val response = kafkaFailureSimulationService.simulate(
+            KafkaFailureSimulationRequest(
+                simulationType = FailureSimulationType.COMMIT_BEFORE_PROCESSING,
+                sourceCount = 3,
+                affectedEvents = 1,
+            )
+        )
+
+        response.perceivedLoss shouldBe true
+        response.offsetCommitted shouldBe true
+        response.sinkUpdated shouldBe false
+        response.countFindings.single() shouldContain "sink"
+        response.matchedRisk?.stage shouldBe PipelineStage.CONSUMER
     }
 
     private fun event(

@@ -160,6 +160,73 @@ curl -X POST http://localhost:8080/lab/orders/events \
 - partition 수가 3개인지 확인
 - 같은 `aggregateId`를 반복 발행하며 어느 partition으로 가는지 관찰
 
+## 🔍 검증/판단 실습 API
+
+### 1. CDC 유실 검증
+
+누락 resume token, count mismatch, projection 지연 여부를 한 번에 확인합니다.
+
+```bash
+curl -X POST http://localhost:8080/lab/cdc/verify \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "events": [
+      { "resumeToken": 101, "aggregateId": "order-300", "version": 1 },
+      { "resumeToken": 103, "aggregateId": "order-300", "version": 2 }
+    ],
+    "countSnapshot": {
+      "sourceCount": 2,
+      "topicCount": 2,
+      "sinkCount": 1
+    },
+    "projections": [
+      { "aggregateId": "order-300", "latestAppliedVersion": 1 }
+    ]
+  }'
+```
+
+### 2. MongoDB 모델링 판단
+
+```bash
+curl -X POST http://localhost:8080/lab/modeling/decision \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "readTogether": true,
+    "updateTogether": true,
+    "boundedCardinality": true,
+    "independentlyQueriedChildren": false
+  }'
+```
+
+응답 예시는 다음과 같습니다.
+
+```json
+{
+  "strategy": "EMBED",
+  "reason": "함께 읽고 함께 바꾸며 cardinality가 제한적이므로 Embed가 적합합니다."
+}
+```
+
+### 3. Kafka 실패 시뮬레이션
+
+consumer가 offset을 먼저 commit하거나, DLQ 없이 예외를 삼켰을 때 왜 유실처럼 보이는지 확인합니다.
+
+```bash
+curl -X POST http://localhost:8080/lab/kafka/failure-simulation \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "simulationType": "COMMIT_BEFORE_PROCESSING",
+    "sourceCount": 3,
+    "affectedEvents": 1
+  }'
+```
+
+다른 시뮬레이션 타입:
+
+- `SWALLOW_EXCEPTION_WITHOUT_DLQ`
+- `BROKER_REPLICATION_GAP`
+- `SAFE_RETRY_WITH_DLQ`
+
 ## 🔬 학습 시나리오
 
 ### 시나리오 1: CDC 유실 검증
